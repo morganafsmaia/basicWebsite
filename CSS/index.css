@@ -1,0 +1,57 @@
+body{
+    padding: 0px;
+    margin: 0px;
+    background-color: black;
+    color:white;
+    font-family: 'Days One', sans-serif;
+}
+
+.welcome{
+    display: flex;
+    background-image: url(../IMAGES/flowers-1.jpg);
+    align-content: center;
+    flex-direction: column;
+    text-align: center;
+    background-position: right bottom;
+    background-size: cover;
+}
+
+.welcome .text{
+    color:white;
+    font-size: 36px;
+    font-weight: bold;
+    background-size: cover;
+    margin-bottom: 50px;
+    /*text-shadow: 1px 1px black;*/
+}
+
+.welcome h1{
+    font-size: 54px;
+    color: white;
+    /*text-shadow: 5px 5px black;*/
+}
+
+footer{
+    display: flex;
+    font-size: 14px;
+    align-content: center;
+    justify-content: space-between;
+    font-weight: bold;
+    padding: 10px;
+}
+
+nav ul{
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    margin: 0px;
+    padding:10px;
+    list-style: none;
+    background-color: black;
+    color: white;
+}
+
+nav a{
+    color: white;
+    text-decoration: none;
+}

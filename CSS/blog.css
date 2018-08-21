@@ -1,0 +1,44 @@
+body{
+    padding: 0px;
+    margin: 0px;
+    background-color: black;
+    color:white;
+    font-family: 'Days One', sans-serif;
+}
+
+footer{
+    display: flex;
+    font-size: 14px;
+    align-content: center;
+    justify-content: space-between;
+    font-weight: bold;
+    padding: 10px;
+}
+
+nav ul{
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    margin: 0px;
+    padding:10px;
+    list-style: none;
+    background-color: black;
+    color: white;
+}
+
+nav a{
+    color: white;
+    text-decoration: none;
+}
+
+.workingOnIt {
+    font-size: 20px; 
+    align-items: center;
+    height:100px;
+    text-align: center;
+}
+
+/* .workingOnIt{
+    display: flex;
+    background-image: url(../IMAGES/background_green-1.jpg);
+} */

@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf8">
+	<meta name="viewport" content="width=device-width">
+	<title>Some nice exercises :)</title>
+	<style>
+		html, body {
+			font-family: sans-serif;
+			margin: 0;
+			padding: 0;
+		}
+		samp {
+			font-family: monospace;
+			white-space: pre;
+		}
+
+		/* Let me say it... The layout of this page is not good. Sorry about that. */
+		body {
+			display: flex;
+			flex-direction: row;
+			flex-wrap: wrap;
+			align-items: flex-start;
+			margin: 12px;
+		}
+		body > #mainform {
+			flex: 0 0 auto;
+		}
+		body > article {
+			flex: 1 1 auto;
+			width: 10em;
+			max-height: calc(100vh - 2 * 12px);
+			overflow-y: scroll;
+		}
+
+		#mainform {
+			display: inline-grid;
+			grid-template-columns: auto auto;
+			grid-template-areas: "code input" "code output";
+		}
+		.codefieldset {
+			grid-area: code;
+		}
+		.inputfieldset {
+			grid-area: input;
+		}
+		.outputfieldset {
+			grid-area: output;
+		}
+		.inputfieldset > div {
+			display: grid;
+			grid-template-columns: auto auto;
+		}
+	</style>
+	<script>
+		'use strict';
+		const TIMEOUT_MS = 250;
+		var global_worker = null;
+		var global_timeout = null;
+		var global_code = '';
+		function terminate_worker() {
+			if (global_timeout) {
+				clearTimeout(global_timeout);
+			}
+			if (global_worker) {
+				global_worker.terminate();
+				global_worker = null;
+			}
+		}
+
+		// Utility function.
+		function splitlines(s) {
+			// https://stackoverflow.com/questions/5034781/js-regex-to-split-by-line#comment5633979_5035005
+			// return s.split(/(\r\n|[\n\v\f\r\x85\u2028\u2029])/);
+			// But that huge regex is still buggy and did not split CRLF correctly.
+			// So, let's use a simple regex:
+			return s.split(/\r?\n/);
+		}
+
+		// Terminal control (the output panel).
+		function clear() {
+			var output = document.getElementById('output');
+			output.value = '';
+		}
+		function print(text) {
+			var output = document.getElementById('output');
+			output.value += '' + text;
+		}
+
+		// Event handlers... Several of them!
+
+		function onmessage_handler(ev) {
+			switch (ev.data.action) {
+				case 'started':
+					clear();
+					break;
+				case 'finished':
+					terminate_worker();
+					break;
+				case 'print':
+					print(ev.data.text);
+					break;
+				default:
+					throw 'Unsupported main thread action.' + ev.data.action;
+			}
+		}
+
+		function code_timeout_handler() {
+			terminate_worker();
+			print(`\nInterrupted after ${TIMEOUT_MS}ms.\n`);
+		}
+
+		function oninput_handler(ev) {
+			terminate_worker();
+
+			var x = parseInt(document.getElementById('xinput').value, 10);
+			var y = parseInt(document.getElementById('yinput').value, 10);
+			var z = parseInt(document.getElementById('zinput').value, 10);
+			global_code = document.getElementById('code').value;
+
+			var full_code = [
+				`'use strict'; function run(print, x, y, z) {\n`,
+				global_code,
+				`
+				}
+				addEventListener('message', function(ev) {
+					switch (ev.data.action) {
+						case 'run':
+							postMessage({
+								'action': 'started',
+							});
+							run(print, ev.data.arguments.x, ev.data.arguments.y, ev.data.arguments.z);
+							postMessage({
+								'action': 'finished',
+							});
+							break;
+						default:
+							throw 'Unsupported worker action.' + ev.data.action;
+					}
+				});
+				function print(text) {
+					postMessage({
+						'action': 'print',
+						'text': text,
+					});
+				}
+				`,
+			].join('');
+			var url = URL.createObjectURL(new Blob([full_code]));
+
+			clear();
+			print('Starting...\n');
+
+			var worker = new Worker(url);
+			worker.addEventListener('message', onmessage_handler);
+			worker.addEventListener('error', onerror_handler);
+			global_timeout = setTimeout(code_timeout_handler, TIMEOUT_MS);
+			worker.postMessage({
+				'action': 'run',
+				'arguments': {
+					'x': x,
+					'y': y,
+					'z': z,
+				},
+			});
+		}
+
+		// Handles and print errors from the worker.
+		function onerror_handler(ev) {
+			// ev.filename is just a blob URL (i.e. useless).
+			// ev.lineno 1 is the one prepended by this script.
+			var lines = splitlines(global_code);
+			var line = lines[ev.lineno - 1 - 1];
+			var arrow = '-'.repeat(ev.colno - 1) + '^';
+			print([
+				`Error on line ${ev.lineno - 1} column ${ev.colno}:`,
+				line,
+				arrow,
+				ev.message,
+			].join('\n'));
+			terminate_worker();
+		}
+
+		function init() {
+			var mainform = document.getElementById('mainform');
+			mainform.addEventListener('submit', (ev) => ev.preventDefault());
+			mainform.addEventListener('input', oninput_handler);
+			oninput_handler();
+		}
+		window.addEventListener('DOMContentLoaded', init);
+	</script>
+</head>
+<body>
+
+	<form id="mainform">
+		<fieldset class="codefieldset">
+			<legend>Code:</legend>
+			<div><code>function(print, x, y, z) {</code></div>
+			<div><textarea id="code" cols="50" rows="16" autofocus>print('Hi');</textarea></div>
+			<div><code>}</code></div>
+		</fieldset>
+
+		<fieldset class="inputfieldset">
+			<legend>Input:</legend>
+			<div>
+				<label for="xinput">X:</label> <input type="number" id="xinput" value="6">
+				<label for="yinput">Y:</label> <input type="number" id="yinput" value="4">
+				<label for="zinput">Z:</label> <input type="number" id="zinput" value="3">
+			</div>
+		</fieldset>
+
+		<fieldset class="outputfieldset">
+			<legend>Output:</legend>
+			<textarea id="output" cols="35" rows="10" readonly></textarea>
+		</fieldset>
+	</form>
+
+	<article>
+		<h1>Exercises</h1>
+
+		<section>
+			<h2>Basic input/output and conditionals</h2>
+			<ol>
+
+<li>Print in a single line: <samp>Hello, world!</samp></li>
+
+<li>Print in two lines:
+<div><samp>Hello!
+World!</samp></div></li>
+
+<li>Print (on different lines) the sum, the difference, the product, the quotient, and the modulus (remainder) of the numbers X and Y.</li>
+
+<li>Considering X the radius of a circle, print the diameter, the circumference and the area of the circle.</li>
+
+<li>Consider a bank that charges a fixed amount of €5 per month, plus an additional 0.5% of interest on the negative balance (if the balance is negative). Write code that, given the current balance is X, prints how much the bank will charge on that month for that given balance.</li>
+
+<li>Given X a temperature in Celsius, print the temperature in Fahrenheit.</li>
+
+<li>Given X a number of seconds, print the amount of hours, minutes and seconds X corresponds. For instance, 3723 seconds means <samp>1h 2min 3s</samp></li>
+
+<li>Given two numbers X and Y, write code that prints one of the following lines, depending on the case:
+<div><samp>X is greater than Y
+Y is greater than X
+X is equal to Y</samp></div></li>
+
+<li>Given two numbers X and Y, print one of the following lines, depending on the case:
+<div><samp>X is multiple of Y
+X is not multiple of Y</samp></div></li>
+
+<li>Given three numbers X, Y and Z, print the maximum number, the minimum number, and the mean.</li>
+
+<li>Given a year X, print whether that year is a leap year or not. A leap year is either divisible by 400, or divisible by 4 but not divisible by 100.</li>
+
+			</ol>
+		</section>
+		<section>
+			<h2>Loops</h2>
+			<ol>
+
+<li>Given X, print <samp>Hello, world!</samp> X times.</li>
+
+<li>Given X, print <samp>Hello!</samp> X times if X is even, or print <samp>World!</samp> X times if X is odd.</li>
+
+<li>Given X, print X lines. Each line should be prefixed with the line number. If the line number is even, print <samp>World</samp>, or print <samp>Hello</samp> if the line number is odd. Follow this example for X=3:
+<div><samp>1 Hello
+2 World
+3 Hello</samp></div></li>
+
+<li>Given X, print the <samp>#</samp> character X times in one line, like this:
+<div><samp>########</samp></div></li>
+
+<li>Given X, print a filled square. Follow this example for X=4:
+<div><samp>####
+####
+####
+####</samp></div></li>
+
+<li>Given X and Y, print a filled rectangle X characters wide and Y characters tall.</li>
+
+<li>Given X and Y, print a filled rectangle Y characters wide and X characters tall.</li>
+
+<li>Given X and Y, print a filled rectangle of size X,Y, but divided in 4 parts. Follow this example for X=6 and Y=4:
+<div><samp>aaabbb
+aaabbb
+cccddd
+cccddd</samp></div>
+If X or Y are odd, then one half will end up being one character larger than the other half. That is fine and expected.</li>
+
+<li>Given X and Y, print a filled rectangle following a checkerboard pattern. Follow this example for X=4 and Y=3:
+<div><samp>#_#_
+_#_#
+#_#_</samp></div>
+For extra fun, use <samp>/</samp> and <samp>\</samp> as the characters.</li>
+
+<li>Given X and Y, print the top and the left sides of a rectangle. Follow this example for X=4 and Y=3:
+<div><samp>####
+#
+#</samp></div></li>
+
+<li>Given X and Y, print the border of a rectangle of that size. Assume X&gt;=2 and Y&gt;=2. Follow this example for X=4 and Y=4:
+<div><samp>####
+#  #
+#  #
+####</samp></div></li>
+
+<li>Given X, print X lines, where each n-th line is the number n repeated n times. Follow this example for X=4:
+<div><samp>1
+22
+333
+4444</samp></div></li>
+
+<li>Given X, print a triangle with height=X. Follow this example for X=4:
+<div><samp>   #
+  ###
+ #####
+#######</samp></div></li>
+
+<li>Given X, print a diamond of size X. Follow this example for X=3:
+<div><samp>  #
+ ###
+#####
+ ###
+  #</samp></div></li>
+
+			</ol>
+		</section>
+	</article>
+</body>
+</html>
